@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>글로벌 직무 한국어 LMS & AI 지니 튜터</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .login-container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .main-container { display: none; max-width: 1300px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input, select, button { padding: 10px; margin: 5px; font-size: 15px; border-radius: 5px; border: 1px solid #ccc; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+        .content-layout { display: flex; gap: 20px; }
+        .left-panel { flex: 1; display: flex; flex-direction: column; }
+        .right-panel { width: 480px; height: 600px; display: flex; flex-direction: column; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+        .pdf-viewer { width: 100%; height: 520px; border: 1px solid #ccc; border-radius: 5px; background: #e9ecef; }
+        .chat-box { flex: 1; overflow-y: auto; background: white; padding: 12px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 10px; box-sizing: border-box; }
+        .chat-msg { margin-bottom: 12px; line-height: 1.5; font-size: 14px; }
+        .chat-msg.user { text-align: right; color: #007bff; }
+        .chat-msg.ai { text-align: left; color: #333; background: #f1f3f5; padding: 10px; border-radius: 6px; }
+        .controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
+        .ai-control-bar { display: flex; justify-content: space-between; align-items: center; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-bottom: 10px; flex-shrink: 0; }
+        .ai-input-bar { display: flex; gap: 5px; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 센터 ID 입력 로그인 화면 -->
+    <div id="loginSection" class="login-container">
+        <h2>LMS 센터 인증</h2>
+        <p>승인된 센터 ID를 입력해주세요.<br>(예: <b>DEMO_TRIAL_01</b>)</p>
+        <input type="text" id="academyInput" placeholder="센터 ID 입력" value="DEMO_TRIAL_01">
+        <br>
+        <button onclick="handleLogin()">시스템 접속하기</button>
+        <p id="loginError" style="color: red; font-size: 13px; margin-top: 10px;"></p>
+    </div>
+
+    <!-- 2. 메인 학습 화면 -->
+    <div id="mainSection" class="main-container">
+        <div class="header-bar">
+            <div>
+                <h2 id="academyTitle" style="margin: 0;">센터명</h2>
+                <span id="centerInfo" style="color: #666; font-size: 14px;"></span>
+            </div>
+            <div>
+                <label><b>과목 선택:</b></label>
+                <select id="courseSelect" onchange="changeCourse()">
+                    <option value="manager">관리사 과정</option>
+                    <option value="consultant">컨설턴트 과정</option>
+                </select>
+                <button onclick="location.reload()" style="background-color: #dc3545; margin-left: 10px;">로그아웃</button>
+            </div>
+        </div>
+
+        <div class="content-layout">
+            <!-- 좌측: PDF 교재 및 컨트롤러 -->
+            <div class="left-panel">
+                <h3 id="chapterTitleText" style="margin-top: 0;">장 제목</h3>
+                <!-- 💡 PDF 뷰어 iframe -->
+                <iframe id="pdfFrame" class="pdf-viewer" src=""></iframe>
+                
+                <div class="controls">
+                    <button onclick="moveChapter(-1)">◀ 이전 장</button>
+                    <button onclick="movePage(-1)">◀ 이전 페이지</button>
+                    <span id="pageIndicator" style="font-weight: bold; font-size: 16px;">1장 - 1페이지</span>
+                    <button onclick="movePage(1)">다음 페이지 ▶</button>
+                    <button onclick="moveChapter(1)">다음 장 ▶</button>
+                </div>
+            </div>
+
+            <!-- 우측: 상단 버튼 고정 + 독립 스크롤 대본 + 하단 입력 고정 -->
+            <div class="right-panel">
+                <div class="ai-control-bar">
+                    <span style="font-weight: bold; font-size: 14px;">🤖 AI 지니 튜터 제어</span>
+                    <button onclick="toggleAITutor()" id="aiToggleButton" style="background-color: #28a745; font-size: 13px; padding: 6px 12px;">AI 구동 시작 (OFF)</button>
+                </div>
+
+                <div id="chatBox" class="chat-box">
+                    <div class="chat-msg ai"><b>지니 선생님:</b> 안녕하세요! 'AI 구동 시작' 버튼을 누르시면, 페이지를 이동할 때마다 대본이 아래로 쌓이며 음성 낭독이 자연스럽게 실행됩니다.</div>
+                </div>
+                
+                <div class="ai-input-bar">
+                    <input type="text" id="userInput" placeholder="질문을 입력하세요..." style="flex: 1; margin: 0;" onkeypress="if(event.key=='Enter') sendQuestion()">
+                    <button onclick="sendQuestion()" style="margin: 0;">전송</button>
+                    <button onclick="startVoiceRecognition()" style="background-color: #17a2b8; margin: 0;" title="음성으로 질문하기">🎤 음성</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAcademyCode = "";
+        let currentCourse = "manager";
+        let currentChapter = 1;
+        let currentPage = 1;
+        let maxChapterNum = 16;
+        let maxPageNum = 11;
+        let currentChapterTitle = "";
+        let currentPageContentText = "";
+        let isAITutorActive = false;
+
+        async function handleLogin() {
+            const code = document.getElementById("academyInput").value.trim();
+            if (!code) {
+                alert("센터 ID를 입력해 주세요.");
+                return;
+            }
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/lesson-data?academy_code=${code}&course_type=manager&chapter=1&page=1`);
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "인증 실패");
+                }
+                currentAcademyCode = code;
+                document.getElementById("loginSection").style.display = "none";
+                document.getElementById("mainSection").style.display = "block";
+                loadLessonData();
+            } catch (err) {
+                document.getElementById("loginError").innerText = "🚨 " + err.message;
+            }
+        }
+
+        function toggleAITutor() {
+            isAITutorActive = !isAITutorActive;
+            const btn = document.getElementById("aiToggleButton");
+            if (isAITutorActive) {
+                btn.style.backgroundColor = "#dc3545";
+                btn.innerText = "AI 구동 중지 (ON)";
+                appendChat("ai", "AI 지니 튜터 음성 안내가 켜졌습니다. 페이지를 이동할 때마다 대본이 자동으로 낭독됩니다.");
+                playTextToSpeech(currentPageContentText);
+            } else {
+                btn.style.backgroundColor = "#28a745";
+                btn.innerText = "AI 구동 시작 (OFF)";
+                stopAllSpeech();
+                appendChat("ai", "AI 지니 튜터 음성 안내가 일시정지 되었습니다.");
+            }
+        }
+
+        function changeCourse() {
+            currentCourse = document.getElementById("courseSelect").value;
+            currentChapter = 1;
+            currentPage = 1;
+            loadLessonData();
+        }
+
+        async function loadLessonData() {
+            try {
+                stopAllSpeech();
+
+                const url = `http://127.0.0.1:8000/api/lesson-data?academy_code=${currentAcademyCode}&course_type=${currentCourse}&chapter=${currentChapter}&page=${currentPage}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                document.getElementById("academyTitle").innerText = data.academy_name;
+                document.getElementById("centerInfo").innerText = `소속 국가: ${data.country} (${data.target_language}) \vert{} 센터 코드: ${data.academy_code}`;
+                document.getElementById("chapterTitleText").innerText = data.chapter_title;
+                document.getElementById("pageIndicator").innerText = `${data.chapter}장 - ${data.page}페이지`;
+                
+                currentChapterTitle = data.chapter_title;
+                currentPageContentText = data.page_content_text;
+                maxChapterNum = data.max_chapter;
+                maxPageNum = data.max_page;
+
+                // 💡 [핵심 보완] 구글 드라이브 뷰어 URL에 현재 페이지 번호(#page=페이지)를 함께 전달하여 교재 페이지와 완벽 동기화
+                const pdfUrl = `https://drive.google.com/file/d/${data.drive_file_id}/preview#page=${data.page}`;
+                document.getElementById("pdfFrame").src = pdfUrl;
+
+                if (isAITutorActive) {
+                    appendChat("ai", `[${data.chapter}장 ${data.page}페이지 대본]\n${currentPageContentText}`);
+                    playTextToSpeech(currentPageContentText);
+                }
+
+            } catch (err) {
+                console.error("데이터 로드 실패:", err);
+            }
+        }
+
+        function movePage(step) {
+            currentPage += step;
+            if (currentPage < 1) {
+                currentPage = 1;
+                alert("첫 번째 페이지입니다.");
+            } else if (currentPage > maxPageNum) {
+                currentPage = maxPageNum;
+                alert("이 장의 마지막 페이지입니다. 다음 장으로 이동해 주세요.");
+            } else {
+                loadLessonData();
+            }
+        }
+
+        function moveChapter(step) {
+            currentChapter += step;
+            if (currentChapter < 1) {
+                currentChapter = 1;
+                alert("첫 번째 장입니다.");
+            } else if (currentChapter > maxChapterNum) {
+                currentChapter = maxChapterNum;
+                alert("마지막 장입니다.");
+            } else {
+                currentPage = 1; 
+                loadLessonData();
+            }
+        }
+
+        async function sendQuestion() {
+            const inputField = document.getElementById("userInput");
+            const text = inputField.value.trim();
+            if (!text) return;
+
+            appendChat("user", text);
+            inputField.value = "";
+
+            const chatBox = document.getElementById("chatBox");
+            const loadingId = "loading_" + Date.now();
+            chatBox.innerHTML += `<div id="${loadingId}" class="chat-msg ai"><i>지니 선생님이 답변을 생각하고 있습니다...</i></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/ai-tutor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        academy_code: currentAcademyCode,
+                        course_type: currentCourse,
+                        chapter_title: currentChapterTitle,
+                        current_page: currentPage,
+                        page_content_text: currentPageContentText,
+                        student_message: text
+                    })
+                });
+                const data = await res.json();
+                
+                document.getElementById(loadingId).remove();
+                appendChat("ai", data.reply);
+                playTextToSpeech(data.reply);
+
+            } catch (err) {
+                document.getElementById(loadingId).remove();
+                appendChat("ai", "통신 장애가 발생했습니다.");
+            }
+        }
+
+        function appendChat(sender, msg) {
+            const chatBox = document.getElementById("chatBox");
+            const className = sender === 'user' ? 'user' : 'ai';
+            const name = sender === 'user' ? '교육생' : '지니 선생님';
+            chatBox.innerHTML += `<div class="chat-msg ${className}"><b>${name}:</b>${msg.replace(/\n/g, '<br>')}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function stopAllSpeech() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function playTextToSpeech(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+
+                const cleanText = text.replace(/[*#_`~]/g, '').trim();
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'ko-KR';
+                
+                utterance.rate = 0.90; 
+                utterance.pitch = 1.0;
+
+                const voices = window.speechSynthesis.getVoices();
+                const preferredVoice = voices.find(v => v.lang === 'ko-KR' || v.lang === 'ko_KR') || voices.find(v => v.lang.includes('ko'));
+                
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = function() {
+                window.speechSynthesis.getVoices();
+            };
+        }
+
+        function startVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("크롬 브라우저를 사용해 주세요.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'ko-KR';
+            recognition.start();
+
+            alert("마이크에 대고 질문을 말씀하세요...");
+
+            recognition.onresult = function(event) {
+                const speechResult = event.results[0][0].transcript;
+                document.getElementById("userInput").value = speechResult;
+                sendQuestion();
+            };
+        }
+    </script>
+</body>
+</html>

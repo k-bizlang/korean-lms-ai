@@ -1,0 +1,14 @@
+{
+  "DEMO_TRIAL_01": {
+    "academy_name": "글로벌직무소통 하노이 교육센터",
+    "country": "베트남",
+    "target_language": "베트남어",
+    "is_approved": true
+  },
+  "DEMO_TRIAL_02": {
+    "academy_name": "글로벌직무소통 타슈켄트 센터",
+    "country": "우즈베키스탄",
+    "target_language": "우즈벡어",
+    "is_approved": true
+  }
+}
