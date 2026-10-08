@@ -43,7 +43,7 @@ def load_config():
         }
     }
 
-# 📌 2. 장별/과별 공식 구글 드라이브 파일 ID 폴백 딕셔너리 (원본 그대로 유지 적용)
+# 📌 2. 장별/과별 공식 구글 드라이브 파일 ID 폴백 딕셔너리
 MANAGER_DEFAULT_FILE_IDS = {
     1: "1on7JrpM4wdKwYqMMNvIs-djFSNZdhN8A", 2: "1WSc7EC8LqnAYyHSHi2dcGkFtqwwOePXs",
     3: "1i3S704xhel-CMo-iWpTeQKJsr9MK9yyj", 4: "1S2X_H6e3XsG5zNSUxr7yEm8LWZwQObmc",
@@ -77,7 +77,7 @@ def load_curriculum_csv():
         logging.error(f"CSV 로딩 에러: {e}")
         return pd.DataFrame()
 
-# 📌 3. 센터 ID 승인 검증 및 강의 데이터 연동 API (체험판 1장 제한 및 언어 감지 반영)
+# 📌 3. 센터 ID 승인 검증 및 강의 데이터 연동 API
 @app.get("/api/lesson-data")
 async def get_lesson_data(
     academy_code: str = Query(...), 
@@ -93,7 +93,7 @@ async def get_lesson_data(
         raise HTTPException(status_code=403, detail="승인되지 않았거나 존재하지 않는 센터 ID입니다. 올바른 ID를 입력해 주세요.")
     
     academy_info = configs[clean_code]
-    max_limit = academy_info.get("max_chapter_limit") # 1이면 1장만 허용, 풀버전은 null
+    max_limit = academy_info.get("max_chapter_limit")
     
     logging.info(f"📥 [접속 승인 완료] 센터명: {academy_info['academy_name']} ({clean_code}) | 감지 언어: {client_lang}")
 
@@ -114,7 +114,6 @@ async def get_lesson_data(
     else:
         drive_file_id = CONSULTANT_DEFAULT_FILE_IDS.get(final_chapter, "1-GglR8iUJ03NyFHtXRNchMohXg3imvTw")
 
-    # CSV 데이터 검색
     df_curriculum = load_curriculum_csv()
     if not df_curriculum.empty:
         try:
@@ -152,7 +151,7 @@ async def get_lesson_data(
         "is_trial": (max_limit == 1)
     }
 
-# 📌 4. Gemini AI 튜터 API (차분한 목소리 지시 + 브라우저 언어 반영 답변 + 토큰 모니터링)
+# 📌 4. Gemini AI 튜터 API
 class QuestionRequest(BaseModel):
     academy_code: str
     course_type: str
@@ -205,8 +204,8 @@ async def ai_tutor_gateway(data: QuestionRequest):
         
     return {"reply": "죄송합니다. 일시적인 통신 장애로 답변을 생성하지 못했습니다."}
 
+# 📌 5. 루트 화면 연결 (HTML 응답)
 from fastapi.responses import HTMLResponse
-import os
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
