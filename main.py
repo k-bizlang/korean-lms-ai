@@ -1,13 +1,14 @@
 import os
 import json
 import logging
+import time
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from google import genai
 import pandas as pd
 
-# 📌 로깅 설정 (접속 이력 및 모니터링용)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = FastAPI()
@@ -20,11 +21,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 검증된 안정적인 Gemini API 키 및 클라이언트 설정
 API_KEY = "AQ.Ab8RN6JZsg1xf6Ptjx3fSDXxJB9L6g9GlR1DM1QJEc4vRCV8VA"
 client = genai.Client(api_key=API_KEY)
 
-# 📌 1. config.json 파일에서 센터 승인 및 체험판/풀버전 설정 불러오기
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     if os.path.exists(config_path):
@@ -33,17 +32,16 @@ def load_config():
                 return json.load(f)
         except Exception as e:
             logging.error(f"config.json 읽기 에러: {e}")
-    # 기본 폴백 설정 (체험판 ID)
     return {
         "DEMO_TRIAL_01": {
-            "academy_name": "글로벌 직무 한국어 체험 센터",
+            "academy_name": "글로벌직무소통 체험 센터",
+            "country": "베트남",
             "target_language": "베트남어",
             "is_approved": True,
             "max_chapter_limit": 1
         }
     }
 
-# 📌 2. 장별/과별 공식 구글 드라이브 파일 ID 폴백 딕셔너리
 MANAGER_DEFAULT_FILE_IDS = {
     1: "1on7JrpM4wdKwYqMMNvIs-djFSNZdhN8A", 2: "1WSc7EC8LqnAYyHSHi2dcGkFtqwwOePXs",
     3: "1i3S704xhel-CMo-iWpTeQKJsr9MK9yyj", 4: "1S2X_H6e3XsG5zNSUxr7yEm8LWZwQObmc",
@@ -77,7 +75,6 @@ def load_curriculum_csv():
         logging.error(f"CSV 로딩 에러: {e}")
         return pd.DataFrame()
 
-# 📌 3. 센터 ID 승인 검증 및 강의 데이터 연동 API
 @app.get("/api/lesson-data")
 async def get_lesson_data(
     academy_code: str = Query(...), 
@@ -95,8 +92,6 @@ async def get_lesson_data(
     academy_info = configs[clean_code]
     max_limit = academy_info.get("max_chapter_limit")
     
-    logging.info(f"📥 [접속 승인 완료] 센터명: {academy_info['academy_name']} ({clean_code}) | 감지 언어: {client_lang}")
-
     raw_type = str(course_type).lower().strip()
     c_type = "consultant" if "consultant" in raw_type or "컨설턴트" in raw_type else "manager"
     
@@ -136,22 +131,36 @@ async def get_lesson_data(
                     drive_file_id = str(row.get('drive_file_id')).strip()
         except Exception as e:
             logging.error(f"CSV 검색 에러: {e}")
-  
+
+    max_page_num = 11
+    if not df_curriculum.empty:
+        try:
+            matched_chapter_pages = df_curriculum[
+                (df_curriculum['course_type'].astype(str).str.strip().str.lower() == c_type) & 
+                (df_curriculum['chapter_num'] == final_chapter)
+            ]
+            if not matched_chapter_pages.empty:
+                max_page_num = int(matched_chapter_pages['page_num'].max())
+        except Exception as e:
+            logging.error(f"최대 페이지 계산 에러: {e}")
+
     return {
         "academy_code": clean_code,
         "academy_name": academy_info["academy_name"],
+        "country": academy_info["country"],
+        "target_language": academy_info["target_language"],
         "target_language_auto": client_lang,
         "course_type": c_type,
         "chapter": final_chapter,
         "page": final_page,
         "max_chapter": allowed_max_chapter,
+        "max_page": max_page_num,
         "chapter_title": chapter_title,
         "page_content_text": page_content_text,
         "drive_file_id": drive_file_id,
         "is_trial": (max_limit == 1)
     }
 
-# 📌 4. Gemini AI 튜터 API
 class QuestionRequest(BaseModel):
     academy_code: str
     course_type: str
@@ -169,6 +178,8 @@ async def ai_tutor_gateway(data: QuestionRequest):
         raise HTTPException(status_code=403, detail="인증되지 않은 접근입니다.")
         
     academy_info = configs[clean_code]
+    country = academy_info["country"]
+    target_lang = academy_info["target_language"]
     user_lang = data.client_lang if data.client_lang else "ko"
     
     msg = data.student_message.strip()
@@ -177,39 +188,45 @@ async def ai_tutor_gateway(data: QuestionRequest):
 
     system_prompt = (
         f"당신은 직무 한국어 교육 기관의 수석 교사 '지니 선생님'입니다.\n"
-        f"교육생 접속 언어 환경: {user_lang}\n"
+        f"교육생 접속 환경 언어: {user_lang} (소속 국가: {country}, 현지어: {target_lang})\n"
         f"현재 수업 위치: {data.chapter_title} (페이지 {data.current_page})\n"
         f"현재 페이지 참고 대본: \"{data.page_content_text}\"\n\n"
         f"지침:\n"
         f"1. 말투는 사람이 듣기에 온화하고 차분하며 거부감이 전혀 없는 다정한 어조로 답변하세요.\n"
         f"2. 교육생의 질문에 대해 현재 페이지 대본을 바탕으로 한국어로 명쾌하게 설명해 주세요.\n"
-        f"3. 교육생이 완벽히 이해할 수 있도록 접속 환경 언어({user_lang})를 고려한 번역과 설명을 함께 병기해 주세요."
+        f"3. 교육생이 완벽히 이해할 수 있도록 접속 환경({user_lang})에 맞춰 {country}의 {target_lang}(현지어) 설명 및 번역을 함께 병기해 주세요."
     )
     
-    try:
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=f"{system_prompt}\n\n교육생 질문: {msg}"
-        )
-        
-        if response and response.text:
-            if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                total_t = response.usage_metadata.total_token_count
-                logging.info(f"📊 [AI 토큰 소모량] 센터:{clean_code} | 총 토큰: {total_t}")
-                
-            return {"reply": response.text}
-            
-    except Exception as e:
-        logging.error(f"Gemini API 에러: {e}")
-        
-    return {"reply": "죄송합니다. 일시적인 통신 장애로 답변을 생성하지 못했습니다."}
+    model_candidates = [
+        "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", 
+        "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"
+    ]
 
-# 📌 5. 루트 화면 연결 (HTML 응답)
-from fastapi.responses import HTMLResponse
+    response_text = None
+    last_error = None
+
+    for model_name in model_candidates:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=f"{system_prompt}\n\n교육생 질문: {msg}"
+            )
+            if response and response.text:
+                response_text = response.text
+                break
+        except Exception as model_err:
+            last_error = model_err
+            time.sleep(1)
+
+    if not response_text:
+        return {"reply": "죄송합니다. 일시적인 통신 장애로 답변을 생성하지 못했습니다. 잠시 후 다시 질문해 주세요."}
+
+    return {"reply": response_text}
 
 @app.get("/", response_class=HTMLResponse)
-async def read_root():
-    if os.path.exists("index.html"):
-        with open("index.html", "r", encoding="utf-8") as f:
+async def serve_index():
+    html_path = "index.html"
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
             return f.read()
-    return "index.html not found"
+    return "<h1>index.html 파일을 찾을 수 없습니다. working directory를 확인해주세요.</h1>"

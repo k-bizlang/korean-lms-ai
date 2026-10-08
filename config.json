@@ -1,14 +1,14 @@
 {
   "DEMO_TRIAL_01": {
-    "academy_name": "글로벌 직무 한국어 체험 센터",
-    "target_language_auto": true,
-    "is_approved": true,
-    "max_chapter_limit": 1
+    "academy_name": "글로벌직무소통 하노이 교육센터",
+    "country": "베트남",
+    "target_language": "베트남어",
+    "is_approved": true
   },
-  "DEMO_FULL_02": {
-    "academy_name": "글로벌 직무 한국어 정식 센터 (FULL)",
-    "target_language_auto": true,
-    "is_approved": true,
-    "max_chapter_limit": null
+  "DEMO_TRIAL_02": {
+    "academy_name": "글로벌직무소통 타슈켄트 센터",
+    "country": "우즈베키스탄",
+    "target_language": "우즈벡어",
+    "is_approved": true
   }
 }
