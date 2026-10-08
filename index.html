@@ -13,15 +13,13 @@
         .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
         .content-layout { display: flex; gap: 20px; }
         .left-panel { flex: 1; display: flex; flex-direction: column; }
-        .right-panel { width: 480px; height: 600px; display: flex; flex-direction: column; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-        .pdf-viewer { width: 100%; height: 520px; border: 1px solid #ccc; border-radius: 5px; background: #e9ecef; }
-        .chat-box { flex: 1; overflow-y: auto; background: white; padding: 12px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 10px; box-sizing: border-box; }
-        .chat-msg { margin-bottom: 12px; line-height: 1.5; font-size: 14px; }
+        .right-panel { width: 450px; display: flex; flex-direction: column; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        .pdf-viewer { width: 100%; height: 600px; border: 1px solid #ccc; border-radius: 5px; background: #e9ecef; }
+        .chat-box { flex: 1; height: 400px; overflow-y: auto; background: white; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 10px; }
+        .chat-msg { margin-bottom: 10px; line-height: 1.4; }
         .chat-msg.user { text-align: right; color: #007bff; }
-        .chat-msg.ai { text-align: left; color: #333; background: #f1f3f5; padding: 10px; border-radius: 6px; }
+        .chat-msg.ai { text-align: left; color: #333; background: #f1f3f5; padding: 8px; border-radius: 5px; }
         .controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
-        .ai-control-bar { display: flex; justify-content: space-between; align-items: center; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-bottom: 10px; flex-shrink: 0; }
-        .ai-input-bar { display: flex; gap: 5px; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -29,7 +27,7 @@
     <!-- 1. 센터 ID 입력 로그인 화면 -->
     <div id="loginSection" class="login-container">
         <h2>LMS 센터 인증</h2>
-        <p>승인된 센터 ID를 입력해주세요.<br>(예: <b>DEMO_TRIAL_01</b>)</p>
+        <p>체험용 센터 ID가 자동으로 입력되어 있습니다.<br>(체험판: DEMO_TRIAL_01 / 풀버전: DEMO_FULL_02)</p>
         <input type="text" id="academyInput" placeholder="센터 ID 입력" value="DEMO_TRIAL_01">
         <br>
         <button onclick="handleLogin()">시스템 접속하기</button>
@@ -54,12 +52,13 @@
         </div>
 
         <div class="content-layout">
-            <!-- 좌측: PDF 교재 및 컨트롤러 -->
+            <!-- 좌측: PDF 교재 및 대본 영역 -->
             <div class="left-panel">
                 <h3 id="chapterTitleText" style="margin-top: 0;">장 제목</h3>
-                <!-- 💡 PDF 뷰어 iframe -->
+                <!-- 구글 드라이브 PDF 송출 뷰어 -->
                 <iframe id="pdfFrame" class="pdf-viewer" src=""></iframe>
                 
+                <!-- 페이지 이동 버튼 컨트롤러 -->
                 <div class="controls">
                     <button onclick="moveChapter(-1)">◀ 이전 장</button>
                     <button onclick="movePage(-1)">◀ 이전 페이지</button>
@@ -69,21 +68,20 @@
                 </div>
             </div>
 
-            <!-- 우측: 상단 버튼 고정 + 독립 스크롤 대본 + 하단 입력 고정 -->
+            <!-- 우측: AI 지니 튜터 질의응답 영역 -->
             <div class="right-panel">
-                <div class="ai-control-bar">
-                    <span style="font-weight: bold; font-size: 14px;">🤖 AI 지니 튜터 제어</span>
-                    <button onclick="toggleAITutor()" id="aiToggleButton" style="background-color: #28a745; font-size: 13px; padding: 6px 12px;">AI 구동 시작 (OFF)</button>
-                </div>
-
+                <h3 style="margin-top: 0;">🤖 AI 지니 튜터</h3>
                 <div id="chatBox" class="chat-box">
-                    <div class="chat-msg ai"><b>지니 선생님:</b> 안녕하세요! 'AI 구동 시작' 버튼을 누르시면, 페이지를 이동할 때마다 대본이 아래로 쌓이며 음성 낭독이 자연스럽게 실행됩니다.</div>
+                    <div class="chat-msg ai"><b>지니 선생님:</b> 안녕하세요! 공부하다가 모르는 내용이 있으면 언제든 텍스트나 음성으로 물어보세요. 차분하게 설명해 드릴게요!</div>
                 </div>
                 
-                <div class="ai-input-bar">
-                    <input type="text" id="userInput" placeholder="질문을 입력하세요..." style="flex: 1; margin: 0;" onkeypress="if(event.key=='Enter') sendQuestion()">
-                    <button onclick="sendQuestion()" style="margin: 0;">전송</button>
-                    <button onclick="startVoiceRecognition()" style="background-color: #17a2b8; margin: 0;" title="음성으로 질문하기">🎤 음성</button>
+                <div style="display: flex; gap: 5px;">
+                    <!-- 텍스트 입력창 -->
+                    <input type="text" id="userInput" placeholder="질문을 입력하세요..." style="flex: 1;" onkeypress="if(event.key=='Enter') sendQuestion()">
+                    <!-- 텍스트 전송 버튼 -->
+                    <button onclick="sendQuestion()">전송</button>
+                    <!-- 음성 인식(마이크) 버튼 -->
+                    <button onclick="startVoiceRecognition()" style="background-color: #28a745;" title="음성으로 질문하기">🎤 음성</button>
                 </div>
             </div>
         </div>
@@ -95,11 +93,16 @@
         let currentChapter = 1;
         let currentPage = 1;
         let maxChapterNum = 16;
-        let maxPageNum = 11;
         let currentChapterTitle = "";
         let currentPageContentText = "";
-        let isAITutorActive = false;
+        let isTrialUser = false;
 
+        // 브라우저 언어 자동 감지
+        function getClientLanguage() {
+            return navigator.language || navigator.userLanguage || 'ko';
+        }
+
+        // 로그인 처리
         async function handleLogin() {
             const code = document.getElementById("academyInput").value.trim();
             if (!code) {
@@ -107,7 +110,8 @@
                 return;
             }
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/lesson-data?academy_code=${code}&course_type=manager&chapter=1&page=1`);
+                const lang = getClientLanguage();
+                const res = await fetch(`http://127.0.0.1:8000/api/lesson-data?academy_code=${code}&course_type=manager&chapter=1&page=1&client_lang=${lang}`);
                 if (!res.ok) {
                     const errData = await res.json();
                     throw new Error(errData.detail || "인증 실패");
@@ -121,22 +125,7 @@
             }
         }
 
-        function toggleAITutor() {
-            isAITutorActive = !isAITutorActive;
-            const btn = document.getElementById("aiToggleButton");
-            if (isAITutorActive) {
-                btn.style.backgroundColor = "#dc3545";
-                btn.innerText = "AI 구동 중지 (ON)";
-                appendChat("ai", "AI 지니 튜터 음성 안내가 켜졌습니다. 페이지를 이동할 때마다 대본이 자동으로 낭독됩니다.");
-                playTextToSpeech(currentPageContentText);
-            } else {
-                btn.style.backgroundColor = "#28a745";
-                btn.innerText = "AI 구동 시작 (OFF)";
-                stopAllSpeech();
-                appendChat("ai", "AI 지니 튜터 음성 안내가 일시정지 되었습니다.");
-            }
-        }
-
+        // 과목 변경
         function changeCourse() {
             currentCourse = document.getElementById("courseSelect").value;
             currentChapter = 1;
@@ -144,52 +133,54 @@
             loadLessonData();
         }
 
+        // 데이터 및 PDF 로드
         async function loadLessonData() {
             try {
-                stopAllSpeech();
-
-                const url = `http://127.0.0.1:8000/api/lesson-data?academy_code=${currentAcademyCode}&course_type=${currentCourse}&chapter=${currentChapter}&page=${currentPage}`;
+                const lang = getClientLanguage();
+                const url = `http://127.0.0.1:8000/api/lesson-data?academy_code=${currentAcademyCode}&course_type=${currentCourse}&chapter=${currentChapter}&page=${currentPage}&client_lang=${lang}`;
                 const res = await fetch(url);
                 const data = await res.json();
 
                 document.getElementById("academyTitle").innerText = data.academy_name;
-                document.getElementById("centerInfo").innerText = `소속 국가: ${data.country} (${data.target_language}) \vert{} 센터 코드: ${data.academy_code}`;
+                isTrialUser = data.is_trial;
+                
+                let trialNotice = isTrialUser ? " [체험판: 1장만 열람 가능]" : " [정식 풀버전]";
+                document.getElementById("centerInfo").innerText = `감지 언어: ${data.target_language_auto} | 계정 등급:${trialNotice}`;
+                
                 document.getElementById("chapterTitleText").innerText = data.chapter_title;
                 document.getElementById("pageIndicator").innerText = `${data.chapter}장 - ${data.page}페이지`;
                 
                 currentChapterTitle = data.chapter_title;
                 currentPageContentText = data.page_content_text;
                 maxChapterNum = data.max_chapter;
-                maxPageNum = data.max_page;
 
-                // 💡 [핵심 보완] 구글 드라이브 뷰어 URL에 현재 페이지 번호(#page=페이지)를 함께 전달하여 교재 페이지와 완벽 동기화
-                const pdfUrl = `https://drive.google.com/file/d/${data.drive_file_id}/preview#page=${data.page}`;
+                // 구글 드라이브 PDF 파일 ID 연동
+                const pdfUrl = `https://drive.google.com/file/d/${data.drive_file_id}/preview`;
                 document.getElementById("pdfFrame").src = pdfUrl;
-
-                if (isAITutorActive) {
-                    appendChat("ai", `[${data.chapter}장 ${data.page}페이지 대본]\n${currentPageContentText}`);
-                    playTextToSpeech(currentPageContentText);
-                }
 
             } catch (err) {
                 console.error("데이터 로드 실패:", err);
             }
         }
 
+        // 페이지 이동
         function movePage(step) {
             currentPage += step;
             if (currentPage < 1) {
                 currentPage = 1;
                 alert("첫 번째 페이지입니다.");
-            } else if (currentPage > maxPageNum) {
-                currentPage = maxPageNum;
-                alert("이 장의 마지막 페이지입니다. 다음 장으로 이동해 주세요.");
             } else {
                 loadLessonData();
             }
         }
 
+        // 장 이동 (체험판인 경우 1장 초과 시 차단)
         function moveChapter(step) {
+            if (isTrialUser && step > 0) {
+                alert("✨ 체험판 계정은 제1장만 미리보기가 가능합니다. 모든 장을 보시려면 정식 풀버전 ID(DEMO_FULL_02)를 이용해 주세요!");
+                return;
+            }
+
             currentChapter += step;
             if (currentChapter < 1) {
                 currentChapter = 1;
@@ -198,11 +189,12 @@
                 currentChapter = maxChapterNum;
                 alert("마지막 장입니다.");
             } else {
-                currentPage = 1; 
+                currentPage = 1;
                 loadLessonData();
             }
         }
 
+        // AI 튜터 질문 전송
         async function sendQuestion() {
             const inputField = document.getElementById("userInput");
             const text = inputField.value.trim();
@@ -217,6 +209,7 @@
             chatBox.scrollTop = chatBox.scrollHeight;
 
             try {
+                const lang = getClientLanguage();
                 const res = await fetch("http://127.0.0.1:8000/api/ai-tutor", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -226,13 +219,16 @@
                         chapter_title: currentChapterTitle,
                         current_page: currentPage,
                         page_content_text: currentPageContentText,
-                        student_message: text
+                        student_message: text,
+                        client_lang: lang
                     })
                 });
                 const data = await res.json();
                 
                 document.getElementById(loadingId).remove();
                 appendChat("ai", data.reply);
+
+                // AI 답변 음성(TTS) 송출
                 playTextToSpeech(data.reply);
 
             } catch (err) {
@@ -245,48 +241,28 @@
             const chatBox = document.getElementById("chatBox");
             const className = sender === 'user' ? 'user' : 'ai';
             const name = sender === 'user' ? '교육생' : '지니 선생님';
-            chatBox.innerHTML += `<div class="chat-msg ${className}"><b>${name}:</b>${msg.replace(/\n/g, '<br>')}</div>`;
+            chatBox.innerHTML += `<div class="chat-msg ${className}"><b>${name}:</b> ${msg.replace(/\n/g, '<br>')}</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function stopAllSpeech() {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-            }
-        }
-
+        // 웹 브라우저 내장 TTS (차분한 톤 제어)
         function playTextToSpeech(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
-
-                const cleanText = text.replace(/[*#_`~]/g, '').trim();
+                const cleanText = text.replace(/[*#_]/g, '');
                 const utterance = new SpeechSynthesisUtterance(cleanText);
                 utterance.lang = 'ko-KR';
-                
-                utterance.rate = 0.90; 
+                utterance.rate = 0.95;
                 utterance.pitch = 1.0;
-
-                const voices = window.speechSynthesis.getVoices();
-                const preferredVoice = voices.find(v => v.lang === 'ko-KR' || v.lang === 'ko_KR') || voices.find(v => v.lang.includes('ko'));
-                
-                if (preferredVoice) {
-                    utterance.voice = preferredVoice;
-                }
-
                 window.speechSynthesis.speak(utterance);
             }
         }
 
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.onvoiceschanged = function() {
-                window.speechSynthesis.getVoices();
-            };
-        }
-
+        // 음성 인식(마이크 입력)
         function startVoiceRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
-                alert("크롬 브라우저를 사용해 주세요.");
+                alert("이 브라우저는 음성 인식을 지원하지 않습니다. 크롬 브라우저를 사용해 주세요.");
                 return;
             }
             const recognition = new SpeechRecognition();
@@ -299,6 +275,10 @@
                 const speechResult = event.results[0][0].transcript;
                 document.getElementById("userInput").value = speechResult;
                 sendQuestion();
+            };
+
+            recognition.onerror = function(event) {
+                alert("음성 인식 오류: " + event.error);
             };
         }
     </script>
