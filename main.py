@@ -204,3 +204,13 @@ async def ai_tutor_gateway(data: QuestionRequest):
         logging.error(f"Gemini API 에러: {e}")
         
     return {"reply": "죄송합니다. 일시적인 통신 장애로 답변을 생성하지 못했습니다."}
+
+from fastapi.responses import HTMLResponse
+import os
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "index.html not found"
