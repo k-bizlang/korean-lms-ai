@@ -22,26 +22,24 @@
         .controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
         .ai-control-bar { display: flex; justify-content: space-between; align-items: center; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-bottom: 10px; flex-shrink: 0; }
         .ai-input-bar { display: flex; gap: 5px; flex-shrink: 0; }
-        .id-guide { background: #eef2f7; padding: 12px; border-radius: 6px; font-size: 13px; text-align: left; margin-bottom: 15px; line-height: 1.4; color: #333; }
+        .id-guide { background: #eef2f7; padding: 12px; border-radius: 6px; font-size: 13px; text-align: left; margin-bottom: 15px; line-height: 1.5; color: #333; }
     </style>
 </head>
 <body>
-
-    <!-- 1. 로그인 화면 (체험판 및 정식 풀버전 ID 안내 명시) -->
     <div id="loginSection" class="login-container">
         <h2>LMS 센터 인증</h2>
         <div class="id-guide">
             <b>💡 로그인 센터 ID 안내</b><br>
-            • <b>체험판 ID:</b> <code>DEMO_TRIAL_01</code> (과목당 제1장만 체험 가능)<br>
-            • <b>풀버전 ID:</b> <code>DEMO_FULL_02</code> (모든 과정 및 전 장 무제한 열람 가능)
+            • 기관에서 발급받은 정식 센터 인증 ID 또는 체험용 센터 ID를 아래 입력창에 정확히 입력해 주세요.<br>
+            • 입력 후 [시스템 접속하기] 버튼을 누르면 해당 센터 권한에 맞는 학습 환경으로 자동 연결됩니다.
         </div>
-        <input type="text" id="academyInput" placeholder="센터 ID 입력" value="DEMO_TRIAL_01" style="width: 80%;">
+        <!-- 💡 최초 로그인 시 하드코딩된 ID(DEMO_TRIAL_01)를 완전히 삭제하고 빈 칸으로 유지 -->
+        <input type="text" id="academyInput" placeholder="발급받은 센터 ID를 입력하세요" value="" style="width: 80%;">
         <br>
         <button onclick="handleLogin()" style="width: 84%; margin-top: 10px;">시스템 접속하기</button>
         <p id="loginError" style="color: red; font-size: 13px; margin-top: 10px;"></p>
     </div>
 
-    <!-- 2. 메인 학습 화면 -->
     <div id="mainSection" class="main-container">
         <div class="header-bar">
             <div>
@@ -67,7 +65,7 @@
                 <div class="controls">
                     <button onclick="moveChapter(-1)">◀ 이전 장</button>
                     <button onclick="movePage(-1)">◀ 이전 페이지</button>
-                    <span id="pageIndicator" style="font-weight: bold; font-size: 16px;">1장 - 1페이지</span>
+                    <span id="pageIndicator" style="font-weight: bold; font-size: 16px;">1장 1페이지</span>
                     <button onclick="movePage(1)">다음 페이지 ▶</button>
                     <button onclick="moveChapter(1)">다음 장 ▶</button>
                 </div>
@@ -79,7 +77,6 @@
                     <span style="font-weight: bold; font-size: 14px;">🤖 AI 지니 튜터 제어</span>
                     <button onclick="toggleAITutor()" id="aiToggleButton" style="background-color: #28a745; font-size: 13px; padding: 6px 12px;">AI 구동 시작 (OFF)</button>
                 </div>
-
                 <div id="chatBox" class="chat-box">
                     <div class="chat-msg ai"><b>지니 선생님:</b> 안녕하세요! 'AI 구동 시작' 버튼을 누르시면, 페이지를 이동할 때마다 대본이 아래로 쌓이며 음성 낭독이 자연스럽게 실행됩니다.</div>
                 </div>
@@ -157,7 +154,6 @@
         async function loadLessonData() {
             try {
                 stopAllSpeech();
-
                 const lang = getClientLanguage();
                 const url = `/api/lesson-data?academy_code=${currentAcademyCode}&course_type=${currentCourse}&chapter=${currentChapter}&page=${currentPage}&client_lang=${lang}`;
                 const res = await fetch(url);
@@ -166,11 +162,11 @@
                 document.getElementById("academyTitle").innerText = data.academy_name;
                 isTrialUser = data.is_trial;
                 
-                let gradeText = isTrialUser ? " [체험판: 과목당 1장만 체험 가능]" : " [정식 풀버전 계정]";
-                document.getElementById("centerInfo").innerText = `감지 언어: ${data.target_language_auto} \vert{} 소속 국가: ${data.country} (${data.target_language}) \vert{} 등급:${gradeText}`;
+                let gradeText = isTrialUser ? " [체험판: 제1장만 체험 가능]" : " [정식 풀버전 계정]";
+                document.getElementById("centerInfo").innerText = `감지 언어: ${data.target_language_auto} | 소속 국가: ${data.country} (${data.target_language}) | 등급:${gradeText}`;
                 
                 document.getElementById("chapterTitleText").innerText = data.chapter_title;
-                document.getElementById("pageIndicator").innerText = `${data.chapter}장 - ${data.page}페이지`;
+                document.getElementById("pageIndicator").innerText = `${data.chapter}장 ${data.page}페이지`;
                 
                 currentChapterTitle = data.chapter_title;
                 currentPageContentText = data.page_content_text;
@@ -191,13 +187,19 @@
         }
 
         function movePage(step) {
+            // 💡 체험판 사용자인 경우 1장 범위를 초과하는 페이지 이동을 강력하게 원천 차단
+            if (isTrialUser && currentChapter === 1 && currentPage + step > maxPageNum) {
+                alert("✨ 체험판 계정은 제1장만 체험하실 수 있습니다. 정식 풀버전 이용을 원하시면 문의해 주세요!");
+                return;
+            }
+
             currentPage += step;
             if (currentPage < 1) {
                 currentPage = 1;
                 alert("첫 번째 페이지입니다.");
             } else if (currentPage > maxPageNum) {
                 if (isTrialUser) {
-                    alert("✨ 체험판 계정은 과목당 제1장만 체험하실 수 있습니다. 정식 풀버전(DEMO_FULL_02)을 이용해 주세요!");
+                    alert("✨ 체험판 계정은 제1장만 체험하실 수 있습니다.");
                     currentPage = maxPageNum;
                     return;
                 }
@@ -209,8 +211,11 @@
         }
 
         function moveChapter(step) {
-            if (isTrialUser && step > 0) {
-                alert("✨ 체험판 계정은 과목당 제1장만 미리보기가 가능합니다. 모든 과정을 보시려면 정식 풀버전 ID(DEMO_FULL_02)를 이용해 주세요!");
+            // 💡 체험판 사용자일 때 1장 이상으로 장 이동을 시도하면 강력 차단
+            if (isTrialUser && (currentChapter + step > 1 || step > 0)) {
+                alert("✨ 체험판 계정은 제1장만 미리보기가 가능합니다. 모든 과정을 보시려면 정식 풀버전 ID를 이용해 주세요!");
+                currentChapter = 1;
+                currentPage = 1;
                 return;
             }
 
@@ -271,7 +276,7 @@
             const chatBox = document.getElementById("chatBox");
             const className = sender === 'user' ? 'user' : 'ai';
             const name = sender === 'user' ? '교육생' : '지니 선생님';
-            chatBox.innerHTML += `<div class="chat-msg ${className}"><b>${name}:</b>${msg.replace(/\n/g, '<br>')}</div>`;
+            chatBox.innerHTML += `<div class="chat-msg ${className}"><b>${name}:</b> ${msg.replace(/\n/g, '<br>')}</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
@@ -281,46 +286,47 @@
             }
         }
 
-        function playTextToSpeech(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
+function playTextToSpeech(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        
+        // 📌 1단계: 마크다운 특수기호, 대시(---), 별표(*), 샵(#), 괄호 등을 빈 문자열로 완벽 제거
+        let cleanText = text
+            .replace(/---/g, '')                    // 대시 기호(---) 제거
+            .replace(/[*#_`~[\]()]/g, '')           // 마크다운 및 특수문자 제거
+            .replace(/-{2,}/g, '')                  // 연속된 대시 제거
+            .trim();
+        
+        // 📌 2단계: 발음 보정 (숫자 최적화)
+        cleanText = cleanText
+            .replace(/제1장/g, '제일장')
+            .replace(/제2장/g, '제이장')
+            .replace(/제3장/g, '제삼장')
+            .replace(/제4장/g, '제사장')
+            .replace(/제5장/g, '제오장')
+            .replace(/제6장/g, '제육장')
+            .replace(/제7장/g, '제칠장')
+            .replace(/제8장/g, '제팔장')
+            .replace(/제9장/g, '제구장')
+            .replace(/제10장/g, '제십장')
+            .replace(/1페이지/g, '일페이지')
+            .replace(/2페이지/g, '이페이지')
+            .replace(/3페이지/g, '삼페이지');
 
-                let cleanText = text.replace(/[*#_`~]/g, '').trim();
-                
-                cleanText = cleanText.replace(/제1장/g, '제일장')
-                                     .replace(/제2장/g, '제이장')
-                                     .replace(/제3장/g, '제삼장')
-                                     .replace(/제4장/g, '제사장')
-                                     .replace(/제5장/g, '제오장')
-                                     .replace(/제6장/g, '제육장')
-                                     .replace(/제7장/g, '제칠장')
-                                     .replace(/제8장/g, '제팔장')
-                                     .replace(/제9장/g, '제구장')
-                                     .replace(/제10장/g, '제십장')
-                                     .replace(/1페이지/g, '일페이지')
-                                     .replace(/2페이지/g, '이페이지')
-                                     .replace(/3페이지/g, '삼페이지');
-
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.lang = 'ko-KR';
-                utterance.rate = 0.90; 
-                utterance.pitch = 1.0;
-
-                const voices = window.speechSynthesis.getVoices();
-                const preferredVoice = voices.find(v => v.lang === 'ko-KR' || v.lang === 'ko_KR') || voices.find(v => v.lang.includes('ko'));
-                if (preferredVoice) {
-                    utterance.voice = preferredVoice;
-                }
-
-                window.speechSynthesis.speak(utterance);
-            }
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'ko-KR';
+        utterance.rate = 0.90; 
+        utterance.pitch = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang === 'ko-KR' || v.lang === 'ko_KR') || voices.find(v => v.lang.includes('ko'));
+        if (preferredVoice) {
+            utterance.voice = preferredVoice;
         }
-
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.onvoiceschanged = function() {
-                window.speechSynthesis.getVoices();
-            };
-        }
+        
+        window.speechSynthesis.speak(utterance);
+    }
+}
 
         function startVoiceRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

@@ -39,6 +39,13 @@ def load_config():
             "target_language": "베트남어",
             "is_approved": True,
             "max_chapter_limit": 1
+        },
+        "DEMO_FULL_02": {
+            "academy_name": "글로벌직무소통 정식 교육 센터",
+            "country": "베트남",
+            "target_language": "베트남어",
+            "is_approved": True,
+            "max_chapter_limit": None
         }
     }
 
@@ -186,25 +193,33 @@ async def ai_tutor_gateway(data: QuestionRequest):
     if not msg:
         return {"reply": "질문 내용을 입력해 주세요."}
 
+    # 📌 1차 / 2차 답변 로직이 반영된 스마트 시스템 프롬프트
     system_prompt = (
         f"당신은 직무 한국어 교육 기관의 수석 교사 '지니 선생님'입니다.\n"
-        f"교육생 접속 환경 언어: {user_lang} (소속 국가: {country}, 현지어: {target_lang})\n"
+        f"교육생 소속 국가: {country} (현지어: {target_lang})\n"
         f"현재 수업 위치: {data.chapter_title} (페이지 {data.current_page})\n"
         f"현재 페이지 참고 대본: \"{data.page_content_text}\"\n\n"
-        f"지침:\n"
-        f"1. 말투는 사람이 듣기에 온화하고 차분하며 거부감이 전혀 없는 다정한 어조로 답변하세요.\n"
-        f"2. 교육생의 질문에 대해 현재 페이지 대본을 바탕으로 한국어로 명쾌하게 설명해 주세요.\n"
-        f"3. 교육생이 완벽히 이해할 수 있도록 접속 환경({user_lang})에 맞춰 {country}의 {target_lang}(현지어) 설명 및 번역을 함께 병기해 주세요."
+        f"[필수 답변 지침]\n"
+        f"1. 본 답변이 교육생의 '1차 질문'인 경우:\n"
+        f"   - 핵심 내용만 매우 심플하고 간단하게 작성하세요.\n"
+        f"   - 한국어 설명과 {target_lang}(현지어) 번역을 함께 병기해 주세요.\n"
+        f"2. 본 답변이 교육생의 '2차 이후 추가 질문'인 경우:\n"
+        f"   - 한국어는 제외하고 **{target_lang}(현지어)로만** 작성하세요.\n"
+        f"   - 너무 길지 않게 핵심 위주로 상세히 설명해 주세요.\n"
+        f"3. 말투는 항상 온화하고 다정한 어조를 유지하세요."
     )
     
+    # 구글 최신 API 규격에 맞는 모델 후보군
     model_candidates = [
-        "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", 
-        "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-latest"
     ]
-
+    
     response_text = None
     last_error = None
-
+    
     for model_name in model_candidates:
         try:
             response = client.models.generate_content(
@@ -217,8 +232,41 @@ async def ai_tutor_gateway(data: QuestionRequest):
         except Exception as model_err:
             last_error = model_err
             time.sleep(1)
+            
+    if not response_text:
+        return {"reply": "죄송합니다. 일시적인 통신 장애로 답변을 생성하지 못했습니다. 잠시 후 다시 질문해 주세요."}
+        
+    return {"reply": response_text}
+    
+  # 📌 구글 최신 API 규격에 맞는 안정적인 멀티 모델 Fallback 리스트
+    model_candidates = [
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-latest"
+    ]
+
+    response_text = None
+    last_error = None
+
+    for model_name in model_candidates:
+        try:
+            logging.info(f"🔄 AI 통신 시도 중 -> 모델: {model_name}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=f"{system_prompt}\n\n교육생 질문: {msg}"
+            )
+            if response and response.text:
+                response_text = response.text
+                logging.info(f"✅ AI 통신 성공! (사용 모델: {model_name})")
+                break
+        except Exception as model_err:
+            logging.warning(f"⚠️ 모델 '{model_name}' 통신 실패, 3초 후 다음 경로로 전환합니다. 사유: {model_err}")
+            last_error = model_err
+            time.sleep(3) # 3초 대기 후 다음 모델로 순환 접속
 
     if not response_text:
+        logging.error(f"🚨 제미나이 최종 통신 장애 발생: {last_error}")
         return {"reply": "죄송합니다. 일시적인 통신 장애로 답변을 생성하지 못했습니다. 잠시 후 다시 질문해 주세요."}
 
     return {"reply": response_text}
